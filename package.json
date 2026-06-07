@@ -2,7 +2,7 @@
   "name": "jelly-cursor",
   "displayName": "Jelly Cursor",
   "description": "A jelly-like animated cursor with movement glow for VS Code.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "iranon",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -27,94 +27,94 @@
   "contributes": {
     "commands": [
       {
-        "command": "Iranon.installDomCursor",
+        "command": "jellyCursor.installDomPatch",
         "title": "Jelly Cursor: Install DOM Patch"
       },
       {
-        "command": "Iranon.uninstallDomCursor",
+        "command": "jellyCursor.uninstallDomPatch",
         "title": "Jelly Cursor: Uninstall DOM Patch"
       }
     ],
     "configuration": {
       "title": "Jelly Cursor",
       "properties": {
-        "newNeovideCursor.note": {
+        "jellyCursor.note": {
           "type": "string",
           "default": "Use the command palette to install or uninstall the DOM cursor patch.",
           "description": "This extension uses a VS Code workbench DOM patch for cursor animation."
         },
-        "newNeovideCursor.fastSpeed": {
+        "jellyCursor.fastSpeed": {
           "type": "number",
           "default": 0.42,
           "minimum": 0.01,
           "maximum": 1,
           "description": "Speed for the cursor corner closest to the movement direction."
         },
-        "newNeovideCursor.midSpeed": {
+        "jellyCursor.midSpeed": {
           "type": "number",
           "default": 0.24,
           "minimum": 0.01,
           "maximum": 1,
           "description": "Speed for side corners of the jelly cursor."
         },
-        "newNeovideCursor.slowSpeed": {
+        "jellyCursor.slowSpeed": {
           "type": "number",
           "default": 0.10,
           "minimum": 0.01,
           "maximum": 1,
           "description": "Speed for the cursor corner opposite the movement direction."
         },
-        "newNeovideCursor.axisBias": {
+        "jellyCursor.axisBias": {
           "type": "number",
           "default": 0.45,
           "minimum": 0,
           "maximum": 1,
           "description": "How strongly horizontal or vertical movement affects corner speed selection."
         },
-        "newNeovideCursor.topEdgeBoost": {
+        "jellyCursor.topEdgeBoost": {
           "type": "number",
           "default": 0.16,
           "minimum": 0,
           "maximum": 0.6,
           "description": "Extra speed for the top two cursor points during mostly horizontal movement."
         },
-        "newNeovideCursor.minAlpha": {
+        "jellyCursor.minAlpha": {
           "type": "number",
           "default": 0.03,
           "minimum": 0,
           "maximum": 1,
           "description": "Minimum alpha for the rendered cursor while the native cursor is blinking."
         },
-        "newNeovideCursor.cursorColor": {
+        "jellyCursor.cursorColor": {
           "type": "string",
           "default": "#ffffff",
           "description": "Rendered cursor color. Leave empty to follow the native VS Code cursor color."
         },
-        "newNeovideCursor.glowColor": {
+        "jellyCursor.glowColor": {
           "type": "string",
           "default": "#ffffff",
           "description": "Cursor glow color. Leave empty to follow the rendered cursor color."
         },
-        "newNeovideCursor.glowEnabled": {
+        "jellyCursor.glowEnabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable cursor glow while moving."
         },
-        "newNeovideCursor.glowOpacity": {
+        "jellyCursor.glowOpacity": {
           "type": "number",
           "default": 0.9,
           "minimum": 0,
           "maximum": 1,
           "description": "Maximum glow opacity while the cursor is moving."
         },
-        "newNeovideCursor.glowIntensity": {
+        "jellyCursor.glowIntensity": {
           "type": "number",
           "default": 1.8,
           "minimum": 0,
           "maximum": 5,
           "description": "Glow brightness multiplier while the cursor is moving."
         },
-        "newNeovideCursor.glowSize": {
+        "jellyCursor.glowSize": {
           "type": "number",
           "default": 18,
           "minimum": 0,

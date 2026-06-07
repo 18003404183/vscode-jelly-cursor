@@ -1,4 +1,4 @@
-# Jelly Cursor
+﻿# Jelly Cursor
 
 [中文说明](README.zh-CN.md)
 
@@ -22,6 +22,7 @@ Because of that:
 - VS Code may show an "installation appears to be corrupt" warning.
 - VS Code updates may remove the patch.
 - Re-run the install command after VS Code updates.
+- The first install creates a `workbench.html.jelly-cursor-backup` backup file next to `workbench.html`.
 - Use the uninstall command before reinstalling VS Code or if you want to remove the patch cleanly.
 
 ## Install The Patch
@@ -50,37 +51,37 @@ Settings are read when the DOM patch is installed. After changing settings, run 
 
 ```json
 {
-  "newNeovideCursor.cursorColor": "#ffffff",
-  "newNeovideCursor.glowColor": "#ffffff",
-  "newNeovideCursor.glowEnabled": true,
-  "newNeovideCursor.glowOpacity": 0.9,
-  "newNeovideCursor.glowIntensity": 1.8,
-  "newNeovideCursor.glowSize": 18,
-  "newNeovideCursor.fastSpeed": 0.42,
-  "newNeovideCursor.midSpeed": 0.24,
-  "newNeovideCursor.slowSpeed": 0.1,
-  "newNeovideCursor.axisBias": 0.45,
-  "newNeovideCursor.topEdgeBoost": 0.16,
-  "newNeovideCursor.minAlpha": 0.03
+  "jellyCursor.cursorColor": "#ffffff",
+  "jellyCursor.glowColor": "#ffffff",
+  "jellyCursor.glowEnabled": true,
+  "jellyCursor.glowOpacity": 0.9,
+  "jellyCursor.glowIntensity": 1.8,
+  "jellyCursor.glowSize": 18,
+  "jellyCursor.fastSpeed": 0.42,
+  "jellyCursor.midSpeed": 0.24,
+  "jellyCursor.slowSpeed": 0.1,
+  "jellyCursor.axisBias": 0.45,
+  "jellyCursor.topEdgeBoost": 0.16,
+  "jellyCursor.minAlpha": 0.03
 }
 ```
 
 ### Motion Settings
 
-- `newNeovideCursor.fastSpeed`: Speed for the corner closest to the movement direction.
-- `newNeovideCursor.midSpeed`: Reserved side-corner tuning value for future refinements.
-- `newNeovideCursor.slowSpeed`: Speed for the corner opposite the movement direction.
-- `newNeovideCursor.axisBias`: Controls whether speed selection favors axis movement or diagonal movement.
-- `newNeovideCursor.topEdgeBoost`: Adds extra speed to the top edge during mostly horizontal movement.
-- `newNeovideCursor.minAlpha`: Minimum alpha while the native cursor is blinking.
+- `jellyCursor.fastSpeed`: Speed for the corner closest to the movement direction.
+- `jellyCursor.midSpeed`: Reserved side-corner tuning value for future refinements.
+- `jellyCursor.slowSpeed`: Speed for the corner opposite the movement direction.
+- `jellyCursor.axisBias`: Controls whether speed selection favors axis movement or diagonal movement.
+- `jellyCursor.topEdgeBoost`: Adds extra speed to the top edge during mostly horizontal movement.
+- `jellyCursor.minAlpha`: Minimum alpha while the native cursor is blinking.
 
 ### Glow Settings
 
-- `newNeovideCursor.glowEnabled`: Enables or disables movement glow.
-- `newNeovideCursor.glowColor`: Glow color. Use an empty string to follow the cursor color.
-- `newNeovideCursor.glowOpacity`: Maximum glow opacity while moving.
-- `newNeovideCursor.glowIntensity`: Brightness multiplier.
-- `newNeovideCursor.glowSize`: Glow radius in pixels.
+- `jellyCursor.glowEnabled`: Enables or disables movement glow.
+- `jellyCursor.glowColor`: Glow color. Use an empty string to follow the cursor color.
+- `jellyCursor.glowOpacity`: Maximum glow opacity while moving.
+- `jellyCursor.glowIntensity`: Brightness multiplier.
+- `jellyCursor.glowSize`: Glow radius in pixels.
 
 ## Known Limitations
 
@@ -97,3 +98,4 @@ npm run compile
 ```
 
 Run the extension in an Extension Development Host, execute the install command, and restart VS Code to test the injected cursor.
+

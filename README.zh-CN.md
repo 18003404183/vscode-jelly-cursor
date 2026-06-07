@@ -20,6 +20,7 @@ Jelly Cursor 使用的是实验性的 DOM Patch 方案。VS Code 的稳定扩展
 - VS Code 可能提示“安装似乎已损坏”。
 - VS Code 更新后可能会移除 Patch。
 - VS Code 更新后通常需要重新执行安装命令。
+- 首次安装会在 `workbench.html` 旁边创建 `workbench.html.jelly-cursor-backup` 备份文件。
 - 如果想移除效果，请先执行卸载命令，然后重启 VS Code。
 
 ## 安装 Patch
@@ -48,37 +49,37 @@ Jelly Cursor: Uninstall DOM Patch
 
 ```json
 {
-  "newNeovideCursor.cursorColor": "#ffffff",
-  "newNeovideCursor.glowColor": "#ffffff",
-  "newNeovideCursor.glowEnabled": true,
-  "newNeovideCursor.glowOpacity": 0.9,
-  "newNeovideCursor.glowIntensity": 1.8,
-  "newNeovideCursor.glowSize": 18,
-  "newNeovideCursor.fastSpeed": 0.42,
-  "newNeovideCursor.midSpeed": 0.24,
-  "newNeovideCursor.slowSpeed": 0.1,
-  "newNeovideCursor.axisBias": 0.45,
-  "newNeovideCursor.topEdgeBoost": 0.16,
-  "newNeovideCursor.minAlpha": 0.03
+  "jellyCursor.cursorColor": "#ffffff",
+  "jellyCursor.glowColor": "#ffffff",
+  "jellyCursor.glowEnabled": true,
+  "jellyCursor.glowOpacity": 0.9,
+  "jellyCursor.glowIntensity": 1.8,
+  "jellyCursor.glowSize": 18,
+  "jellyCursor.fastSpeed": 0.42,
+  "jellyCursor.midSpeed": 0.24,
+  "jellyCursor.slowSpeed": 0.1,
+  "jellyCursor.axisBias": 0.45,
+  "jellyCursor.topEdgeBoost": 0.16,
+  "jellyCursor.minAlpha": 0.03
 }
 ```
 
 ### 动画设置
 
-- `newNeovideCursor.fastSpeed`：移动方向上的角点速度。
-- `newNeovideCursor.midSpeed`：预留的侧边角点调节值，后续可继续细分算法。
-- `newNeovideCursor.slowSpeed`：移动反方向上的角点速度。
-- `newNeovideCursor.axisBias`：控制速度判断更偏向横竖方向还是对角线方向。
-- `newNeovideCursor.topEdgeBoost`：横向移动时给上边两个点额外速度，让形变更灵活。
-- `newNeovideCursor.minAlpha`：原生光标闪烁时渲染光标的最低透明度。
+- `jellyCursor.fastSpeed`：移动方向上的角点速度。
+- `jellyCursor.midSpeed`：预留的侧边角点调节值，后续可继续细分算法。
+- `jellyCursor.slowSpeed`：移动反方向上的角点速度。
+- `jellyCursor.axisBias`：控制速度判断更偏向横竖方向还是对角线方向。
+- `jellyCursor.topEdgeBoost`：横向移动时给上边两个点额外速度，让形变更灵活。
+- `jellyCursor.minAlpha`：原生光标闪烁时渲染光标的最低透明度。
 
 ### 辉光设置
 
-- `newNeovideCursor.glowEnabled`：开启或关闭移动辉光。
-- `newNeovideCursor.glowColor`：辉光颜色。留空时跟随光标颜色。
-- `newNeovideCursor.glowOpacity`：移动时最大辉光透明度。
-- `newNeovideCursor.glowIntensity`：辉光亮度倍率。
-- `newNeovideCursor.glowSize`：辉光范围，单位为像素。
+- `jellyCursor.glowEnabled`：开启或关闭移动辉光。
+- `jellyCursor.glowColor`：辉光颜色。留空时跟随光标颜色。
+- `jellyCursor.glowOpacity`：移动时最大辉光透明度。
+- `jellyCursor.glowIntensity`：辉光亮度倍率。
+- `jellyCursor.glowSize`：辉光范围，单位为像素。
 
 ## 已知限制
 

@@ -2,9 +2,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-const markerStart = '<!-- new-neovide-cursor:start -->';
-const markerEnd = '<!-- new-neovide-cursor:end -->';
-const injectedScriptName = 'new-neovide-cursor.js';
+const markerStart = '<!-- jelly-cursor:start -->';
+const markerEnd = '<!-- jelly-cursor:end -->';
+const legacyMarkerStart = '<!-- new-neovide-cursor:start -->';
+const legacyMarkerEnd = '<!-- new-neovide-cursor:end -->';
+const injectedScriptName = 'jelly-cursor.js';
+const legacyInjectedScriptName = 'new-neovide-cursor.js';
+const backupSuffix = '.jelly-cursor-backup';
 
 type JellyConfig = {
 	fastSpeed: number;
@@ -23,10 +27,10 @@ type JellyConfig = {
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('Iranon.installDomCursor', async () => {
+		vscode.commands.registerCommand('jellyCursor.installDomPatch', async () => {
 			await installDomCursor();
 		}),
-		vscode.commands.registerCommand('Iranon.uninstallDomCursor', async () => {
+		vscode.commands.registerCommand('jellyCursor.uninstallDomPatch', async () => {
 			await uninstallDomCursor();
 		})
 	);
@@ -43,16 +47,24 @@ async function installDomCursor() {
 	}
 
 	const scriptPath = path.join(path.dirname(workbenchHtml), injectedScriptName);
+	const legacyScriptPath = path.join(path.dirname(workbenchHtml), legacyInjectedScriptName);
 	const html = fs.readFileSync(workbenchHtml, 'utf8');
+	backupWorkbenchHtml(workbenchHtml, html);
+
 	const scriptTag = `${markerStart}<script src="./${injectedScriptName}"></script>${markerEnd}`;
-	const nextHtml = html.includes(markerStart)
-		? html.replace(new RegExp(`${escapeRegExp(markerStart)}[\\s\\S]*?${escapeRegExp(markerEnd)}`), scriptTag)
-		: html.replace('</html>', `${scriptTag}\n</html>`);
+	const htmlWithoutLegacyPatch = removePatchMarker(html, legacyMarkerStart, legacyMarkerEnd);
+	const nextHtml = htmlWithoutLegacyPatch.includes(markerStart)
+		? htmlWithoutLegacyPatch.replace(new RegExp(`${escapeRegExp(markerStart)}[\\s\\S]*?${escapeRegExp(markerEnd)}`), scriptTag)
+		: htmlWithoutLegacyPatch.replace('</html>', `${scriptTag}\n</html>`);
 
 	fs.writeFileSync(scriptPath, getInjectedScript(getJellyConfig()), 'utf8');
 	fs.writeFileSync(workbenchHtml, nextHtml, 'utf8');
 
-	vscode.window.showInformationMessage('New Neovide DOM cursor installed. Restart VS Code to load it.');
+	if (fs.existsSync(legacyScriptPath)) {
+		fs.unlinkSync(legacyScriptPath);
+	}
+
+	vscode.window.showInformationMessage('Jelly Cursor DOM patch installed. Restart VS Code to load it.');
 }
 
 async function uninstallDomCursor() {
@@ -64,8 +76,9 @@ async function uninstallDomCursor() {
 	}
 
 	const scriptPath = path.join(path.dirname(workbenchHtml), injectedScriptName);
+	const legacyScriptPath = path.join(path.dirname(workbenchHtml), legacyInjectedScriptName);
 	const html = fs.readFileSync(workbenchHtml, 'utf8');
-	const nextHtml = html.replace(new RegExp(`${escapeRegExp(markerStart)}[\\s\\S]*?${escapeRegExp(markerEnd)}\\s*`), '');
+	const nextHtml = removePatchMarker(removePatchMarker(html, markerStart, markerEnd), legacyMarkerStart, legacyMarkerEnd);
 
 	if (html !== nextHtml) {
 		fs.writeFileSync(workbenchHtml, nextHtml, 'utf8');
@@ -75,7 +88,11 @@ async function uninstallDomCursor() {
 		fs.unlinkSync(scriptPath);
 	}
 
-	vscode.window.showInformationMessage('New Neovide DOM cursor removed. Restart VS Code to finish.');
+	if (fs.existsSync(legacyScriptPath)) {
+		fs.unlinkSync(legacyScriptPath);
+	}
+
+	vscode.window.showInformationMessage('Jelly Cursor DOM patch removed. Restart VS Code to finish.');
 }
 
 async function findWorkbenchHtml() {
@@ -127,23 +144,40 @@ function escapeRegExp(value: string) {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function removePatchMarker(html: string, start: string, end: string) {
+	return html.replace(new RegExp(`${escapeRegExp(start)}[\\s\\S]*?${escapeRegExp(end)}\\s*`), '');
+}
+
+function backupWorkbenchHtml(workbenchHtml: string, html: string) {
+	const backupPath = `${workbenchHtml}${backupSuffix}`;
+
+	if (!fs.existsSync(backupPath)) {
+		fs.writeFileSync(backupPath, html, 'utf8');
+	}
+}
+
 function getJellyConfig(): JellyConfig {
-	const config = vscode.workspace.getConfiguration('newNeovideCursor');
+	const config = vscode.workspace.getConfiguration('jellyCursor');
+	const legacyConfig = vscode.workspace.getConfiguration('newNeovideCursor');
 
 	return {
-		fastSpeed: clamp(config.get('fastSpeed', 0.42), 0.01, 1),
-		midSpeed: clamp(config.get('midSpeed', 0.24), 0.01, 1),
-		slowSpeed: clamp(config.get('slowSpeed', 0.10), 0.01, 1),
-		axisBias: clamp(config.get('axisBias', 0.45), 0, 1),
-		topEdgeBoost: clamp(config.get('topEdgeBoost', 0.16), 0, 0.6),
-		minAlpha: clamp(config.get('minAlpha', 0.03), 0, 1),
-		cursorColor: config.get('cursorColor', '#ffffff'),
-		glowColor: config.get('glowColor', '#ffffff'),
-		glowEnabled: config.get('glowEnabled', true),
-		glowOpacity: clamp(config.get('glowOpacity', 0.9), 0, 1),
-		glowIntensity: clamp(config.get('glowIntensity', 1.8), 0, 5),
-		glowSize: clamp(config.get('glowSize', 18), 0, 40),
+		fastSpeed: clamp(getConfigValue(config, legacyConfig, 'fastSpeed', 0.42), 0.01, 1),
+		midSpeed: clamp(getConfigValue(config, legacyConfig, 'midSpeed', 0.24), 0.01, 1),
+		slowSpeed: clamp(getConfigValue(config, legacyConfig, 'slowSpeed', 0.10), 0.01, 1),
+		axisBias: clamp(getConfigValue(config, legacyConfig, 'axisBias', 0.45), 0, 1),
+		topEdgeBoost: clamp(getConfigValue(config, legacyConfig, 'topEdgeBoost', 0.16), 0, 0.6),
+		minAlpha: clamp(getConfigValue(config, legacyConfig, 'minAlpha', 0.03), 0, 1),
+		cursorColor: getConfigValue(config, legacyConfig, 'cursorColor', '#ffffff'),
+		glowColor: getConfigValue(config, legacyConfig, 'glowColor', '#ffffff'),
+		glowEnabled: getConfigValue(config, legacyConfig, 'glowEnabled', true),
+		glowOpacity: clamp(getConfigValue(config, legacyConfig, 'glowOpacity', 0.9), 0, 1),
+		glowIntensity: clamp(getConfigValue(config, legacyConfig, 'glowIntensity', 1.8), 0, 5),
+		glowSize: clamp(getConfigValue(config, legacyConfig, 'glowSize', 18), 0, 40),
 	};
+}
+
+function getConfigValue<T>(config: vscode.WorkspaceConfiguration, legacyConfig: vscode.WorkspaceConfiguration, key: string, fallback: T) {
+	return config.get<T>(key, legacyConfig.get<T>(key, fallback));
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -171,14 +205,14 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 
 	const style = document.createElement('style');
 	style.textContent = [
-		'.monaco-editor .new-neovide-cursor-layer {',
+		'.monaco-editor .jelly-cursor-layer {',
 		'	position: absolute;',
 		'	inset: 0;',
 		'	pointer-events: none;',
 		'	z-index: 1000;',
 		'	overflow: hidden;',
 		'}',
-		'.monaco-editor .new-neovide-cursor-svg {',
+		'.monaco-editor .jelly-cursor-svg {',
 		'	position: absolute;',
 		'	inset: 0;',
 		'	width: 100%;',
@@ -206,10 +240,10 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 		}
 
 		const layer = document.createElement('div');
-		layer.className = 'new-neovide-cursor-layer';
+		layer.className = 'jelly-cursor-layer';
 
 		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		svg.classList.add('new-neovide-cursor-svg');
+		svg.classList.add('jelly-cursor-svg');
 		layer.appendChild(svg);
 
 		const shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');

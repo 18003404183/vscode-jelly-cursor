@@ -2,6 +2,15 @@
 
 All notable changes to Jelly Cursor are documented here.
 
+## [0.0.2] - 2026-06-07
+
+- Renamed settings from `newNeovideCursor.*` to `jellyCursor.*`.
+- Renamed command IDs to `jellyCursor.installDomPatch` and `jellyCursor.uninstallDomPatch`.
+- Added compatibility reads for legacy `newNeovideCursor.*` settings.
+- Added first-install backup for `workbench.html`.
+- Updated the injected script name and DOM patch markers to Jelly Cursor branding.
+- Added Chinese documentation.
+
 ## [0.0.1] - 2026-06-07
 
 - Initial experimental release.
