@@ -15,6 +15,16 @@ Jelly Cursor adds a jelly-like animated cursor to VS Code. The cursor follows Mo
 - Separate cursor state for multi-cursor and split editor layouts
 - Cross-pane animation when switching between split editors
 
+## Vim Compatibility
+
+Jelly Cursor itself does not require another extension. It mirrors VS Code's current native Monaco cursor shape.
+
+For Vim-style block and line cursor behavior, install and configure a Vim extension first, such as:
+
+- [VSCodeVim](https://marketplace.visualstudio.com/items?itemName=vscodevim.vim)
+
+After the Vim extension changes VS Code's native cursor shape, Jelly Cursor will mirror that shape and animate it.
+
 ## Important
 
 Jelly Cursor uses an experimental DOM patch. VS Code extensions cannot normally access Monaco editor DOM from the stable extension API, so the install command patches VS Code's `workbench.html` and injects a small script.
