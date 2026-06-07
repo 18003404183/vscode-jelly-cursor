@@ -2,6 +2,12 @@
 
 All notable changes to Jelly Cursor are documented here.
 
+## [0.0.4] - 2026-06-07
+
+- Moved cursor rendering to a global overlay so the primary cursor can animate across split editor panes.
+- Improved active-editor cursor ordering for smoother transitions between editor groups.
+- Kept multi-cursor rendering while allowing cross-pane primary cursor movement.
+
 ## [0.0.3] - 2026-06-07
 
 - Improved multi-cursor rendering by maintaining separate jelly cursor shapes per Monaco cursor.

@@ -205,14 +205,14 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 
 	const style = document.createElement('style');
 	style.textContent = [
-		'.monaco-editor .jelly-cursor-layer {',
-		'	position: absolute;',
+		'.jelly-cursor-layer {',
+		'	position: fixed;',
 		'	inset: 0;',
 		'	pointer-events: none;',
-		'	z-index: 1000;',
-		'	overflow: hidden;',
+		'	z-index: 99999;',
+		'	overflow: visible;',
 		'}',
-		'.monaco-editor .jelly-cursor-svg {',
+		'.jelly-cursor-svg {',
 		'	position: absolute;',
 		'	inset: 0;',
 		'	width: 100%;',
@@ -226,48 +226,40 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 	].join('\n');
 	document.head.appendChild(style);
 
-	const states = new WeakMap();
+	const overlay = createOverlay();
+	const states = [];
 	let frameId = 0;
 
-	function getEditorContent(cursor) {
-		return cursor.closest('.monaco-editor')?.querySelector('.overflow-guard .monaco-scrollable-element .lines-content');
-	}
-
-	function ensureEditorState(editor, linesContent) {
-		let editorState = states.get(editor);
-
-		if (editorState) {
-			if (!editorState.layer.isConnected) {
-				linesContent.appendChild(editorState.layer);
-			}
-
-			return editorState;
-		}
-
+	function createOverlay() {
 		const layer = document.createElement('div');
 		layer.className = 'jelly-cursor-layer';
 		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 		svg.classList.add('jelly-cursor-svg');
 		layer.appendChild(svg);
-		linesContent.appendChild(layer);
+		document.body.appendChild(layer);
 
-		editorState = {
+		return {
 			layer,
 			svg,
-			cursors: [],
-			seen: 0,
 		};
-		states.set(editor, editorState);
-		return editorState;
 	}
 
-	function createCursorState(editorState) {
+	function ensureCursorState(index) {
+		while (states.length <= index) {
+			states.push(createCursorState());
+		}
+
+		return states[index];
+	}
+
+	function createCursorState() {
 		const shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
 		shape.setAttribute('vector-effect', 'non-scaling-stroke');
-		editorState.svg.appendChild(shape);
+		overlay.svg.appendChild(shape);
 
 		return {
 			shape,
+			editor: null,
 			targetX: 0,
 			targetY: 0,
 			width: 2,
@@ -282,91 +274,94 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 
 	function updateTargets() {
 		const seen = ++frameId;
-		const editorCursorIndexes = new WeakMap();
+		const cursors = Array.from(document.querySelectorAll('.monaco-editor .cursors-layer .cursor'))
+			.filter((cursor) => {
+				const editor = cursor.closest('.monaco-editor');
+				const rect = cursor.getBoundingClientRect();
 
-		for (const cursor of document.querySelectorAll('.monaco-editor .cursors-layer .cursor')) {
+				return editor && isVisible(editor) && rect.width > 0 && rect.height > 0;
+			})
+			.sort(compareCursors);
+
+		for (let index = 0; index < cursors.length; index++) {
+			const cursor = cursors[index];
 			const editor = cursor.closest('.monaco-editor');
-			const linesContent = getEditorContent(cursor);
 
-			if (!editor || !linesContent) {
+			if (!editor) {
 				continue;
 			}
 
-			const editorState = ensureEditorState(editor, linesContent);
-			const cursorIndex = editorCursorIndexes.get(editor) || 0;
-			editorCursorIndexes.set(editor, cursorIndex + 1);
-
-			while (editorState.cursors.length <= cursorIndex) {
-				editorState.cursors.push(createCursorState(editorState));
-			}
-
-			const state = editorState.cursors[cursorIndex];
+			const state = ensureCursorState(index);
 			const cursorRect = cursor.getBoundingClientRect();
-			const contentRect = linesContent.getBoundingClientRect();
-			const x = cursorRect.left - contentRect.left;
-			const y = cursorRect.top - contentRect.top;
+			const x = cursorRect.left;
+			const y = cursorRect.top;
 
 			if (!Number.isFinite(x) || !Number.isFinite(y) || cursorRect.height <= 0) {
 				continue;
 			}
 
+			state.editor = editor;
 			state.targetX = x;
 			state.targetY = y;
 			state.width = cursorRect.width;
 			state.height = cursorRect.height;
 			state.visual = readCursorVisual(cursor);
 			state.seen = seen;
-			editorState.seen = seen;
 
 			if (!state.started) {
-				state.points = getTargetPoints(state);
+				const nearestState = findNearestStartedState(state, index);
+				state.points = nearestState ? clonePoints(nearestState.points) : getTargetPoints(state);
 				state.started = true;
 			}
 		}
 	}
 
+	function compareCursors(left, right) {
+		const leftEditor = left.closest('.monaco-editor');
+		const rightEditor = right.closest('.monaco-editor');
+		const activeEditor = document.querySelector('.monaco-editor.focused') || document.activeElement?.closest?.('.monaco-editor');
+
+		if (leftEditor === activeEditor && rightEditor !== activeEditor) {
+			return -1;
+		}
+
+		if (rightEditor === activeEditor && leftEditor !== activeEditor) {
+			return 1;
+		}
+
+		const leftRect = left.getBoundingClientRect();
+		const rightRect = right.getBoundingClientRect();
+
+		return leftRect.top - rightRect.top || leftRect.left - rightRect.left;
+	}
+
 	function tick() {
 		updateTargets();
 
-		for (const editor of document.querySelectorAll('.monaco-editor')) {
-			const editorState = states.get(editor);
-
-			if (!editorState) {
+		for (const state of states) {
+			if (!state.started || state.seen !== frameId || !state.editor || !isVisible(state.editor)) {
+				hideCursorState(state);
 				continue;
 			}
 
-			const editorVisible = isVisible(editor);
-			editorState.layer.style.display = editorVisible ? 'block' : 'none';
+			const targetPoints = getTargetPoints(state);
+			const currentPoints = state.points.length === 4 ? state.points : targetPoints;
+			const speeds = getCornerSpeeds(currentPoints, targetPoints);
+			const currentCenter = getCenter(currentPoints);
+			const targetCenter = getCenter(targetPoints);
 
-			if (!editorVisible) {
-				continue;
-			}
+			state.points = currentPoints.map((point, index) => {
+				const target = targetPoints[index];
+				const speed = speeds[index];
 
-			for (const state of editorState.cursors) {
-				if (!state.started || state.seen !== editorState.seen) {
-					hideCursorState(state);
-					continue;
-				}
+				return {
+					x: point.x + (target.x - point.x) * speed,
+					y: point.y + (target.y - point.y) * speed,
+				};
+			});
+			state.movement = Math.hypot(targetCenter.x - currentCenter.x, targetCenter.y - currentCenter.y);
 
-				const targetPoints = getTargetPoints(state);
-				const currentPoints = state.points.length === 4 ? state.points : targetPoints;
-				const speeds = getCornerSpeeds(currentPoints, targetPoints);
-				const currentCenter = getCenter(currentPoints);
-				const targetCenter = getCenter(targetPoints);
-
-				state.points = currentPoints.map((point, index) => {
-					const target = targetPoints[index];
-					const speed = speeds[index];
-
-					return {
-						x: point.x + (target.x - point.x) * speed,
-						y: point.y + (target.y - point.y) * speed,
-					};
-				});
-				state.movement = Math.hypot(targetCenter.x - currentCenter.x, targetCenter.y - currentCenter.y);
-
-				place(state);
-			}
+			place(state);
 		}
 
 		requestAnimationFrame(tick);
@@ -381,6 +376,34 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 	function hideCursorState(state) {
 		state.shape.setAttribute('visibility', 'hidden');
 		state.shape.style.filter = 'none';
+	}
+
+	function findNearestStartedState(targetState, targetIndex) {
+		let nearest = null;
+		let nearestDistance = Number.POSITIVE_INFINITY;
+		const targetCenter = getCenter(getTargetPoints(targetState));
+
+		for (let index = 0; index < states.length; index++) {
+			const state = states[index];
+
+			if (index === targetIndex || !state.started || state.points.length !== 4) {
+				continue;
+			}
+
+			const center = getCenter(state.points);
+			const distance = Math.hypot(targetCenter.x - center.x, targetCenter.y - center.y);
+
+			if (distance < nearestDistance) {
+				nearest = state;
+				nearestDistance = distance;
+			}
+		}
+
+		return nearest;
+	}
+
+	function clonePoints(points) {
+		return points.map((point) => ({ x: point.x, y: point.y }));
 	}
 
 	function readCursorVisual(cursor) {

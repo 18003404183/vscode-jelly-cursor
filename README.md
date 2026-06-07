@@ -13,6 +13,7 @@ Jelly Cursor adds a jelly-like animated cursor to VS Code. The cursor follows Mo
 - Tunable corner speed, deformation, alpha, and glow settings
 - Native cursor shape mirroring for line and block cursor modes
 - Separate cursor state for multi-cursor and split editor layouts
+- Cross-pane animation when switching between split editors
 
 ## Important
 
