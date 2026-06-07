@@ -2,6 +2,12 @@
 
 All notable changes to Jelly Cursor are documented here.
 
+## [0.0.3] - 2026-06-07
+
+- Improved multi-cursor rendering by maintaining separate jelly cursor shapes per Monaco cursor.
+- Improved split editor behavior by isolating cursor state per editor instance.
+- Hide stale cursor shapes when editors are hidden, switched, or cursor nodes disappear.
+
 ## [0.0.2] - 2026-06-07
 
 - Renamed settings from `newNeovideCursor.*` to `jellyCursor.*`.

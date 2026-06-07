@@ -2,7 +2,7 @@
   "name": "jelly-cursor",
   "displayName": "Jelly Cursor",
   "description": "A jelly-like animated cursor with movement glow for VS Code.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "iranon",
   "icon": "assets/icon.png",
   "license": "MIT",

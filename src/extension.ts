@@ -227,34 +227,46 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 	document.head.appendChild(style);
 
 	const states = new WeakMap();
+	let frameId = 0;
 
 	function getEditorContent(cursor) {
 		return cursor.closest('.monaco-editor')?.querySelector('.overflow-guard .monaco-scrollable-element .lines-content');
 	}
 
-	function ensureState(editor, linesContent) {
-		let state = states.get(editor);
+	function ensureEditorState(editor, linesContent) {
+		let editorState = states.get(editor);
 
-		if (state) {
-			return state;
+		if (editorState) {
+			if (!editorState.layer.isConnected) {
+				linesContent.appendChild(editorState.layer);
+			}
+
+			return editorState;
 		}
 
 		const layer = document.createElement('div');
 		layer.className = 'jelly-cursor-layer';
-
 		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 		svg.classList.add('jelly-cursor-svg');
 		layer.appendChild(svg);
-
-		const shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-		shape.setAttribute('vector-effect', 'non-scaling-stroke');
-		svg.appendChild(shape);
-
 		linesContent.appendChild(layer);
 
-		state = {
+		editorState = {
 			layer,
 			svg,
+			cursors: [],
+			seen: 0,
+		};
+		states.set(editor, editorState);
+		return editorState;
+	}
+
+	function createCursorState(editorState) {
+		const shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+		shape.setAttribute('vector-effect', 'non-scaling-stroke');
+		editorState.svg.appendChild(shape);
+
+		return {
 			shape,
 			targetX: 0,
 			targetY: 0,
@@ -264,12 +276,14 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 			movement: 0,
 			started: false,
 			points: [],
+			seen: 0,
 		};
-		states.set(editor, state);
-		return state;
 	}
 
 	function updateTargets() {
+		const seen = ++frameId;
+		const editorCursorIndexes = new WeakMap();
+
 		for (const cursor of document.querySelectorAll('.monaco-editor .cursors-layer .cursor')) {
 			const editor = cursor.closest('.monaco-editor');
 			const linesContent = getEditorContent(cursor);
@@ -278,7 +292,15 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 				continue;
 			}
 
-			const state = ensureState(editor, linesContent);
+			const editorState = ensureEditorState(editor, linesContent);
+			const cursorIndex = editorCursorIndexes.get(editor) || 0;
+			editorCursorIndexes.set(editor, cursorIndex + 1);
+
+			while (editorState.cursors.length <= cursorIndex) {
+				editorState.cursors.push(createCursorState(editorState));
+			}
+
+			const state = editorState.cursors[cursorIndex];
 			const cursorRect = cursor.getBoundingClientRect();
 			const contentRect = linesContent.getBoundingClientRect();
 			const x = cursorRect.left - contentRect.left;
@@ -293,6 +315,8 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 			state.width = cursorRect.width;
 			state.height = cursorRect.height;
 			state.visual = readCursorVisual(cursor);
+			state.seen = seen;
+			editorState.seen = seen;
 
 			if (!state.started) {
 				state.points = getTargetPoints(state);
@@ -305,33 +329,58 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 		updateTargets();
 
 		for (const editor of document.querySelectorAll('.monaco-editor')) {
-			const state = states.get(editor);
+			const editorState = states.get(editor);
 
-			if (!state?.started) {
+			if (!editorState) {
 				continue;
 			}
 
-			const targetPoints = getTargetPoints(state);
-			const currentPoints = state.points.length === 4 ? state.points : targetPoints;
-			const speeds = getCornerSpeeds(currentPoints, targetPoints);
-			const currentCenter = getCenter(currentPoints);
-			const targetCenter = getCenter(targetPoints);
+			const editorVisible = isVisible(editor);
+			editorState.layer.style.display = editorVisible ? 'block' : 'none';
 
-			state.points = currentPoints.map((point, index) => {
-				const target = targetPoints[index];
-				const speed = speeds[index];
+			if (!editorVisible) {
+				continue;
+			}
 
-				return {
-					x: point.x + (target.x - point.x) * speed,
-					y: point.y + (target.y - point.y) * speed,
-				};
-			});
-			state.movement = Math.hypot(targetCenter.x - currentCenter.x, targetCenter.y - currentCenter.y);
+			for (const state of editorState.cursors) {
+				if (!state.started || state.seen !== editorState.seen) {
+					hideCursorState(state);
+					continue;
+				}
 
-			place(state);
+				const targetPoints = getTargetPoints(state);
+				const currentPoints = state.points.length === 4 ? state.points : targetPoints;
+				const speeds = getCornerSpeeds(currentPoints, targetPoints);
+				const currentCenter = getCenter(currentPoints);
+				const targetCenter = getCenter(targetPoints);
+
+				state.points = currentPoints.map((point, index) => {
+					const target = targetPoints[index];
+					const speed = speeds[index];
+
+					return {
+						x: point.x + (target.x - point.x) * speed,
+						y: point.y + (target.y - point.y) * speed,
+					};
+				});
+				state.movement = Math.hypot(targetCenter.x - currentCenter.x, targetCenter.y - currentCenter.y);
+
+				place(state);
+			}
 		}
 
 		requestAnimationFrame(tick);
+	}
+
+	function isVisible(element) {
+		const rect = element.getBoundingClientRect();
+
+		return rect.width > 0 && rect.height > 0;
+	}
+
+	function hideCursorState(state) {
+		state.shape.setAttribute('visibility', 'hidden');
+		state.shape.style.filter = 'none';
 	}
 
 	function readCursorVisual(cursor) {
