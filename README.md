@@ -1,5 +1,7 @@
 # Jelly Cursor
 
+[中文说明](README.zh-CN.md)
+
 Jelly Cursor adds a jelly-like animated cursor to VS Code. The cursor follows Monaco's native cursor position, deforms while moving, supports movement glow, and mirrors the native cursor shape used by modes such as Vim block and line cursors.
 
 ## Features
