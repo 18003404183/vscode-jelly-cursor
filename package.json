@@ -1,0 +1,161 @@
+{
+  "name": "jelly-cursor",
+  "displayName": "Jelly Cursor",
+  "description": "A jelly-like animated cursor with movement glow for VS Code.",
+  "version": "0.0.1",
+  "publisher": "Iranon",
+  "icon": "assets/icon.png",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.120.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "cursor",
+    "animation",
+    "jelly",
+    "smooth",
+    "vim",
+    "monaco"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "Iranon.installDomCursor",
+        "title": "Jelly Cursor: Install DOM Patch"
+      },
+      {
+        "command": "Iranon.uninstallDomCursor",
+        "title": "Jelly Cursor: Uninstall DOM Patch"
+      }
+    ],
+    "configuration": {
+      "title": "Jelly Cursor",
+      "properties": {
+        "newNeovideCursor.note": {
+          "type": "string",
+          "default": "Use the command palette to install or uninstall the DOM cursor patch.",
+          "description": "This extension uses a VS Code workbench DOM patch for cursor animation."
+        },
+        "newNeovideCursor.fastSpeed": {
+          "type": "number",
+          "default": 0.42,
+          "minimum": 0.01,
+          "maximum": 1,
+          "description": "Speed for the cursor corner closest to the movement direction."
+        },
+        "newNeovideCursor.midSpeed": {
+          "type": "number",
+          "default": 0.24,
+          "minimum": 0.01,
+          "maximum": 1,
+          "description": "Speed for side corners of the jelly cursor."
+        },
+        "newNeovideCursor.slowSpeed": {
+          "type": "number",
+          "default": 0.10,
+          "minimum": 0.01,
+          "maximum": 1,
+          "description": "Speed for the cursor corner opposite the movement direction."
+        },
+        "newNeovideCursor.axisBias": {
+          "type": "number",
+          "default": 0.45,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How strongly horizontal or vertical movement affects corner speed selection."
+        },
+        "newNeovideCursor.topEdgeBoost": {
+          "type": "number",
+          "default": 0.16,
+          "minimum": 0,
+          "maximum": 0.6,
+          "description": "Extra speed for the top two cursor points during mostly horizontal movement."
+        },
+        "newNeovideCursor.minAlpha": {
+          "type": "number",
+          "default": 0.03,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum alpha for the rendered cursor while the native cursor is blinking."
+        },
+        "newNeovideCursor.cursorColor": {
+          "type": "string",
+          "default": "#ffffff",
+          "description": "Rendered cursor color. Leave empty to follow the native VS Code cursor color."
+        },
+        "newNeovideCursor.glowColor": {
+          "type": "string",
+          "default": "#ffffff",
+          "description": "Cursor glow color. Leave empty to follow the rendered cursor color."
+        },
+        "newNeovideCursor.glowEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable cursor glow while moving."
+        },
+        "newNeovideCursor.glowOpacity": {
+          "type": "number",
+          "default": 0.9,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Maximum glow opacity while the cursor is moving."
+        },
+        "newNeovideCursor.glowIntensity": {
+          "type": "number",
+          "default": 1.8,
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Glow brightness multiplier while the cursor is moving."
+        },
+        "newNeovideCursor.glowSize": {
+          "type": "number",
+          "default": 18,
+          "minimum": 0,
+          "maximum": 40,
+          "description": "Glow size around the cursor in pixels."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.120.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "esbuild": "^0.27.3",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/18003404183/vscode-jelly-cursor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/18003404183/vscode-jelly-cursor/issues"
+  },
+  "homepage": "https://github.com/18003404183/vscode-jelly-cursor#readme"
+}

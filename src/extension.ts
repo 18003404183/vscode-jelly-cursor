@@ -1,0 +1,467 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
+
+const markerStart = '<!-- new-neovide-cursor:start -->';
+const markerEnd = '<!-- new-neovide-cursor:end -->';
+const injectedScriptName = 'new-neovide-cursor.js';
+
+type JellyConfig = {
+	fastSpeed: number;
+	midSpeed: number;
+	slowSpeed: number;
+	axisBias: number;
+	topEdgeBoost: number;
+	minAlpha: number;
+	cursorColor: string;
+	glowColor: string;
+	glowEnabled: boolean;
+	glowOpacity: number;
+	glowIntensity: number;
+	glowSize: number;
+};
+
+export function activate(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('Iranon.installDomCursor', async () => {
+			await installDomCursor();
+		}),
+		vscode.commands.registerCommand('Iranon.uninstallDomCursor', async () => {
+			await uninstallDomCursor();
+		})
+	);
+}
+
+export function deactivate() {}
+
+async function installDomCursor() {
+	const workbenchHtml = await findWorkbenchHtml();
+
+	if (!workbenchHtml) {
+		vscode.window.showErrorMessage('Cannot find VS Code workbench.html.');
+		return;
+	}
+
+	const scriptPath = path.join(path.dirname(workbenchHtml), injectedScriptName);
+	const html = fs.readFileSync(workbenchHtml, 'utf8');
+	const scriptTag = `${markerStart}<script src="./${injectedScriptName}"></script>${markerEnd}`;
+	const nextHtml = html.includes(markerStart)
+		? html.replace(new RegExp(`${escapeRegExp(markerStart)}[\\s\\S]*?${escapeRegExp(markerEnd)}`), scriptTag)
+		: html.replace('</html>', `${scriptTag}\n</html>`);
+
+	fs.writeFileSync(scriptPath, getInjectedScript(getJellyConfig()), 'utf8');
+	fs.writeFileSync(workbenchHtml, nextHtml, 'utf8');
+
+	vscode.window.showInformationMessage('New Neovide DOM cursor installed. Restart VS Code to load it.');
+}
+
+async function uninstallDomCursor() {
+	const workbenchHtml = await findWorkbenchHtml();
+
+	if (!workbenchHtml) {
+		vscode.window.showErrorMessage('Cannot find VS Code workbench.html.');
+		return;
+	}
+
+	const scriptPath = path.join(path.dirname(workbenchHtml), injectedScriptName);
+	const html = fs.readFileSync(workbenchHtml, 'utf8');
+	const nextHtml = html.replace(new RegExp(`${escapeRegExp(markerStart)}[\\s\\S]*?${escapeRegExp(markerEnd)}\\s*`), '');
+
+	if (html !== nextHtml) {
+		fs.writeFileSync(workbenchHtml, nextHtml, 'utf8');
+	}
+
+	if (fs.existsSync(scriptPath)) {
+		fs.unlinkSync(scriptPath);
+	}
+
+	vscode.window.showInformationMessage('New Neovide DOM cursor removed. Restart VS Code to finish.');
+}
+
+async function findWorkbenchHtml() {
+	const candidates = getInstallRoots()
+		.map((root) => path.join(root, 'resources', 'app', 'out', 'vs', 'code', 'electron-browser', 'workbench', 'workbench.html'))
+		.filter((file) => fs.existsSync(file));
+
+	if (candidates.length > 0) {
+		candidates.sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs);
+		return candidates[0];
+	}
+
+	const picked = await vscode.window.showOpenDialog({
+		canSelectFiles: true,
+		canSelectFolders: false,
+		canSelectMany: false,
+		filters: {
+			'workbench.html': ['html'],
+		},
+		title: 'Select VS Code workbench.html',
+	});
+
+	return picked?.[0]?.fsPath;
+}
+
+function getInstallRoots() {
+	const roots: string[] = [];
+	const appRoot = path.dirname(process.execPath);
+	const localAppData = process.env.LOCALAPPDATA;
+
+	roots.push(appRoot);
+
+	if (localAppData) {
+		const vscodeRoot = path.join(localAppData, 'Programs', 'Microsoft VS Code');
+
+		if (fs.existsSync(vscodeRoot)) {
+			for (const entry of fs.readdirSync(vscodeRoot, { withFileTypes: true })) {
+				if (entry.isDirectory()) {
+					roots.push(path.join(vscodeRoot, entry.name));
+				}
+			}
+		}
+	}
+
+	return Array.from(new Set(roots));
+}
+
+function escapeRegExp(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getJellyConfig(): JellyConfig {
+	const config = vscode.workspace.getConfiguration('newNeovideCursor');
+
+	return {
+		fastSpeed: clamp(config.get('fastSpeed', 0.42), 0.01, 1),
+		midSpeed: clamp(config.get('midSpeed', 0.24), 0.01, 1),
+		slowSpeed: clamp(config.get('slowSpeed', 0.10), 0.01, 1),
+		axisBias: clamp(config.get('axisBias', 0.45), 0, 1),
+		topEdgeBoost: clamp(config.get('topEdgeBoost', 0.16), 0, 0.6),
+		minAlpha: clamp(config.get('minAlpha', 0.03), 0, 1),
+		cursorColor: config.get('cursorColor', '#ffffff'),
+		glowColor: config.get('glowColor', '#ffffff'),
+		glowEnabled: config.get('glowEnabled', true),
+		glowOpacity: clamp(config.get('glowOpacity', 0.9), 0, 1),
+		glowIntensity: clamp(config.get('glowIntensity', 1.8), 0, 5),
+		glowSize: clamp(config.get('glowSize', 18), 0, 40),
+	};
+}
+
+function clamp(value: number, min: number, max: number) {
+	return Math.min(max, Math.max(min, value));
+}
+
+function getInjectedScript(jellyConfig: JellyConfig) {
+	return String.raw`
+(() => {
+	const config = {
+		fallbackColor: '#8fd3ff',
+		fastSpeed: ${jellyConfig.fastSpeed},
+		midSpeed: ${jellyConfig.midSpeed},
+		slowSpeed: ${jellyConfig.slowSpeed},
+		axisBias: ${jellyConfig.axisBias},
+		topEdgeBoost: ${jellyConfig.topEdgeBoost},
+		minAlpha: ${jellyConfig.minAlpha},
+		cursorColor: ${JSON.stringify(jellyConfig.cursorColor)},
+		glowColor: ${JSON.stringify(jellyConfig.glowColor)},
+		glowEnabled: ${jellyConfig.glowEnabled},
+		glowOpacity: ${jellyConfig.glowOpacity},
+		glowIntensity: ${jellyConfig.glowIntensity},
+		glowSize: ${jellyConfig.glowSize},
+	};
+
+	const style = document.createElement('style');
+	style.textContent = [
+		'.monaco-editor .new-neovide-cursor-layer {',
+		'	position: absolute;',
+		'	inset: 0;',
+		'	pointer-events: none;',
+		'	z-index: 1000;',
+		'	overflow: hidden;',
+		'}',
+		'.monaco-editor .new-neovide-cursor-svg {',
+		'	position: absolute;',
+		'	inset: 0;',
+		'	width: 100%;',
+		'	height: 100%;',
+		'	overflow: visible;',
+		'	pointer-events: none;',
+		'}',
+		'.monaco-editor .cursors-layer .cursor {',
+		'	filter: opacity(0) !important;',
+		'}',
+	].join('\n');
+	document.head.appendChild(style);
+
+	const states = new WeakMap();
+
+	function getEditorContent(cursor) {
+		return cursor.closest('.monaco-editor')?.querySelector('.overflow-guard .monaco-scrollable-element .lines-content');
+	}
+
+	function ensureState(editor, linesContent) {
+		let state = states.get(editor);
+
+		if (state) {
+			return state;
+		}
+
+		const layer = document.createElement('div');
+		layer.className = 'new-neovide-cursor-layer';
+
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.classList.add('new-neovide-cursor-svg');
+		layer.appendChild(svg);
+
+		const shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+		shape.setAttribute('vector-effect', 'non-scaling-stroke');
+		svg.appendChild(shape);
+
+		linesContent.appendChild(layer);
+
+		state = {
+			layer,
+			svg,
+			shape,
+			targetX: 0,
+			targetY: 0,
+			width: 2,
+			height: 18,
+			visual: null,
+			movement: 0,
+			started: false,
+			points: [],
+		};
+		states.set(editor, state);
+		return state;
+	}
+
+	function updateTargets() {
+		for (const cursor of document.querySelectorAll('.monaco-editor .cursors-layer .cursor')) {
+			const editor = cursor.closest('.monaco-editor');
+			const linesContent = getEditorContent(cursor);
+
+			if (!editor || !linesContent) {
+				continue;
+			}
+
+			const state = ensureState(editor, linesContent);
+			const cursorRect = cursor.getBoundingClientRect();
+			const contentRect = linesContent.getBoundingClientRect();
+			const x = cursorRect.left - contentRect.left;
+			const y = cursorRect.top - contentRect.top;
+
+			if (!Number.isFinite(x) || !Number.isFinite(y) || cursorRect.height <= 0) {
+				continue;
+			}
+
+			state.targetX = x;
+			state.targetY = y;
+			state.width = cursorRect.width;
+			state.height = cursorRect.height;
+			state.visual = readCursorVisual(cursor);
+
+			if (!state.started) {
+				state.points = getTargetPoints(state);
+				state.started = true;
+			}
+		}
+	}
+
+	function tick() {
+		updateTargets();
+
+		for (const editor of document.querySelectorAll('.monaco-editor')) {
+			const state = states.get(editor);
+
+			if (!state?.started) {
+				continue;
+			}
+
+			const targetPoints = getTargetPoints(state);
+			const currentPoints = state.points.length === 4 ? state.points : targetPoints;
+			const speeds = getCornerSpeeds(currentPoints, targetPoints);
+			const currentCenter = getCenter(currentPoints);
+			const targetCenter = getCenter(targetPoints);
+
+			state.points = currentPoints.map((point, index) => {
+				const target = targetPoints[index];
+				const speed = speeds[index];
+
+				return {
+					x: point.x + (target.x - point.x) * speed,
+					y: point.y + (target.y - point.y) * speed,
+				};
+			});
+			state.movement = Math.hypot(targetCenter.x - currentCenter.x, targetCenter.y - currentCenter.y);
+
+			place(state);
+		}
+
+		requestAnimationFrame(tick);
+	}
+
+	function readCursorVisual(cursor) {
+		const style = getComputedStyle(cursor);
+		const nativeBackgroundColor = style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+			? style.backgroundColor
+			: config.fallbackColor;
+		const backgroundColor = config.cursorColor || nativeBackgroundColor;
+
+		return {
+			opacity: Number.parseFloat(style.opacity || '1'),
+			visibility: style.visibility,
+			backgroundColor,
+			border: style.border,
+			borderColor: style.borderColor,
+			borderRadius: style.borderRadius,
+			outline: style.outline,
+			boxShadow: style.boxShadow && style.boxShadow !== 'none' ? style.boxShadow : '0 0 10px ' + backgroundColor,
+		};
+	}
+
+	function getTargetPoints(state) {
+		const x = state.targetX;
+		const y = state.targetY;
+		const width = Math.max(1, state.width);
+		const height = Math.max(1, state.height);
+
+		return [
+			{ x, y },
+			{ x: x + width, y },
+			{ x: x + width, y: y + height },
+			{ x, y: y + height },
+		];
+	}
+
+	function getCornerSpeeds(currentPoints, targetPoints) {
+		const currentCenter = getCenter(currentPoints);
+		const targetCenter = getCenter(targetPoints);
+		const dx = targetCenter.x - currentCenter.x;
+		const dy = targetCenter.y - currentCenter.y;
+		const distance = Math.hypot(dx, dy);
+
+		if (distance < 0.01) {
+			return [config.fastSpeed, config.fastSpeed, config.fastSpeed, config.fastSpeed];
+		}
+
+		const direction = {
+			x: dx / distance,
+			y: dy / distance,
+		};
+		const targetCenterForCorners = getCenter(targetPoints);
+		const scores = targetPoints.map((point) => {
+			const cornerVector = normalize({
+				x: point.x - targetCenterForCorners.x,
+				y: point.y - targetCenterForCorners.y,
+			});
+			const diagonalScore = (dot(cornerVector, direction) + 1) / 2;
+			const axisScore = getAxisScore(cornerVector, direction);
+			const mixedScore = diagonalScore * (1 - config.axisBias) + axisScore * config.axisBias;
+
+			return Math.max(0, Math.min(1, mixedScore));
+		});
+
+		const horizontalAmount = Math.abs(direction.x);
+
+		return scores.map((score, index) => {
+			const isTopPoint = index === 0 || index === 1;
+			const edgeOffset = config.topEdgeBoost * horizontalAmount * (isTopPoint ? 1 : -0.45);
+			const speed = config.slowSpeed + (config.fastSpeed - config.slowSpeed) * score + edgeOffset;
+
+			return Math.max(0.01, Math.min(1, speed));
+		});
+	}
+
+	function getCenter(points) {
+		return points.reduce((sum, point) => ({
+			x: sum.x + point.x / points.length,
+			y: sum.y + point.y / points.length,
+		}), { x: 0, y: 0 });
+	}
+
+	function getAxisScore(cornerVector, direction) {
+		const horizontal = direction.x === 0 ? 0.5 : (Math.sign(direction.x) === Math.sign(cornerVector.x) ? 1 : 0);
+		const vertical = direction.y === 0 ? 0.5 : (Math.sign(direction.y) === Math.sign(cornerVector.y) ? 1 : 0);
+		const horizontalWeight = Math.abs(direction.x);
+		const verticalWeight = Math.abs(direction.y);
+		const total = horizontalWeight + verticalWeight || 1;
+
+		return (horizontal * horizontalWeight + vertical * verticalWeight) / total;
+	}
+
+	function normalize(vector) {
+		const length = Math.hypot(vector.x, vector.y) || 1;
+
+		return {
+			x: vector.x / length,
+			y: vector.y / length,
+		};
+	}
+
+	function dot(left, right) {
+		return left.x * right.x + left.y * right.y;
+	}
+
+	function place(state) {
+		const fallbackVisual = {
+			opacity: 1,
+			visibility: 'visible',
+			backgroundColor: config.fallbackColor,
+			border: '0',
+			borderColor: config.fallbackColor,
+			borderRadius: '0',
+			outline: '0',
+			boxShadow: '0 0 10px ' + config.fallbackColor,
+		};
+		const visual = state.visual || fallbackVisual;
+		const points = state.points.map((point) => point.x.toFixed(2) + ',' + point.y.toFixed(2)).join(' ');
+		const opacity = Math.max(config.minAlpha, visual.opacity);
+		const glowColor = config.glowColor || visual.backgroundColor;
+		const movementOpacity = Math.min(1, state.movement / 18) * config.glowOpacity * config.glowIntensity * opacity;
+		const glowSize = Math.max(0, config.glowSize);
+		const glowAlpha = Math.max(0, Math.min(1, movementOpacity));
+		const glowFilter = config.glowEnabled && glowAlpha > 0 && glowSize > 0
+			? [
+				'drop-shadow(0 0 ' + Math.max(2, glowSize * 0.45) + 'px ' + withAlpha(glowColor, glowAlpha) + ')',
+				'drop-shadow(0 0 ' + glowSize + 'px ' + withAlpha(glowColor, glowAlpha * 0.72) + ')',
+			].join(' ')
+			: 'none';
+
+		state.shape.setAttribute('points', points);
+		state.shape.setAttribute('fill', visual.backgroundColor);
+		state.shape.setAttribute('opacity', String(opacity));
+		state.shape.setAttribute('visibility', visual.visibility);
+		state.shape.style.filter = glowFilter;
+	}
+
+	function withAlpha(color, alpha) {
+		const safeAlpha = Math.max(0, Math.min(1, alpha));
+
+		if (/^#[0-9a-f]{6}$/i.test(color)) {
+			const value = color.slice(1);
+			const red = Number.parseInt(value.slice(0, 2), 16);
+			const green = Number.parseInt(value.slice(2, 4), 16);
+			const blue = Number.parseInt(value.slice(4, 6), 16);
+
+			return 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + safeAlpha + ')';
+		}
+
+		if (/^#[0-9a-f]{3}$/i.test(color)) {
+			const red = Number.parseInt(color[1] + color[1], 16);
+			const green = Number.parseInt(color[2] + color[2], 16);
+			const blue = Number.parseInt(color[3] + color[3], 16);
+
+			return 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + safeAlpha + ')';
+		}
+
+		if (color.startsWith('rgb(')) {
+			return color.replace('rgb(', 'rgba(').replace(')', ', ' + safeAlpha + ')');
+		}
+
+		return color;
+	}
+
+	requestAnimationFrame(tick);
+})();
+`;
+}
