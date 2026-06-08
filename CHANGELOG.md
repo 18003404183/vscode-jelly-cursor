@@ -2,6 +2,13 @@
 
 All notable changes to Jelly Cursor are documented here.
 
+## [0.0.5] - 2026-06-08
+
+- Reworked jelly deformation to behave consistently in every movement direction.
+- Replaced the one-sided `topEdgeBoost` tuning with directional `twistBoost`.
+- Added convex shape protection to prevent the cursor polygon from crossing into a funnel-like shape.
+- Kept compatibility with the legacy `topEdgeBoost` setting when reading configuration.
+
 ## [0.0.4] - 2026-06-07
 
 - Moved cursor rendering to a global overlay so the primary cursor can animate across split editor panes.

@@ -2,7 +2,7 @@
   "name": "jelly-cursor",
   "displayName": "Jelly Cursor",
   "description": "A jelly-like animated cursor with movement glow for VS Code.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "iranon",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -71,12 +71,12 @@
           "maximum": 1,
           "description": "How strongly horizontal or vertical movement affects corner speed selection."
         },
-        "jellyCursor.topEdgeBoost": {
+        "jellyCursor.twistBoost": {
           "type": "number",
           "default": 0.16,
           "minimum": 0,
           "maximum": 0.6,
-          "description": "Extra speed for the top two cursor points during mostly horizontal movement."
+          "description": "Extra directional deformation strength while the cursor is moving."
         },
         "jellyCursor.minAlpha": {
           "type": "number",

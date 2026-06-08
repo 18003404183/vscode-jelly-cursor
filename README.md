@@ -73,7 +73,7 @@ Settings are read when the DOM patch is installed. After changing settings, run 
   "jellyCursor.midSpeed": 0.24,
   "jellyCursor.slowSpeed": 0.1,
   "jellyCursor.axisBias": 0.45,
-  "jellyCursor.topEdgeBoost": 0.16,
+  "jellyCursor.twistBoost": 0.16,
   "jellyCursor.minAlpha": 0.03
 }
 ```
@@ -84,7 +84,7 @@ Settings are read when the DOM patch is installed. After changing settings, run 
 - `jellyCursor.midSpeed`: Reserved side-corner tuning value for future refinements.
 - `jellyCursor.slowSpeed`: Speed for the corner opposite the movement direction.
 - `jellyCursor.axisBias`: Controls whether speed selection favors axis movement or diagonal movement.
-- `jellyCursor.topEdgeBoost`: Adds extra speed to the top edge during mostly horizontal movement.
+- `jellyCursor.twistBoost`: Adds extra directional deformation in every movement direction while preserving a non-crossing cursor shape.
 - `jellyCursor.minAlpha`: Minimum alpha while the native cursor is blinking.
 
 ### Glow Settings
@@ -110,4 +110,5 @@ npm run compile
 ```
 
 Run the extension in an Extension Development Host, execute the install command, and restart VS Code to test the injected cursor.
+
 

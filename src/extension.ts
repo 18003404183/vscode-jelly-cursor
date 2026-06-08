@@ -15,7 +15,7 @@ type JellyConfig = {
 	midSpeed: number;
 	slowSpeed: number;
 	axisBias: number;
-	topEdgeBoost: number;
+	twistBoost: number;
 	minAlpha: number;
 	cursorColor: string;
 	glowColor: string;
@@ -165,7 +165,7 @@ function getJellyConfig(): JellyConfig {
 		midSpeed: clamp(getConfigValue(config, legacyConfig, 'midSpeed', 0.24), 0.01, 1),
 		slowSpeed: clamp(getConfigValue(config, legacyConfig, 'slowSpeed', 0.10), 0.01, 1),
 		axisBias: clamp(getConfigValue(config, legacyConfig, 'axisBias', 0.45), 0, 1),
-		topEdgeBoost: clamp(getConfigValue(config, legacyConfig, 'topEdgeBoost', 0.16), 0, 0.6),
+		twistBoost: clamp(getConfigValue(config, legacyConfig, 'twistBoost', getConfigValue(config, legacyConfig, 'topEdgeBoost', 0.16)), 0, 0.6),
 		minAlpha: clamp(getConfigValue(config, legacyConfig, 'minAlpha', 0.03), 0, 1),
 		cursorColor: getConfigValue(config, legacyConfig, 'cursorColor', '#ffffff'),
 		glowColor: getConfigValue(config, legacyConfig, 'glowColor', '#ffffff'),
@@ -193,7 +193,7 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 		midSpeed: ${jellyConfig.midSpeed},
 		slowSpeed: ${jellyConfig.slowSpeed},
 		axisBias: ${jellyConfig.axisBias},
-		topEdgeBoost: ${jellyConfig.topEdgeBoost},
+		twistBoost: ${jellyConfig.twistBoost},
 		minAlpha: ${jellyConfig.minAlpha},
 		cursorColor: ${JSON.stringify(jellyConfig.cursorColor)},
 		glowColor: ${JSON.stringify(jellyConfig.glowColor)},
@@ -350,7 +350,7 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 			const currentCenter = getCenter(currentPoints);
 			const targetCenter = getCenter(targetPoints);
 
-			state.points = currentPoints.map((point, index) => {
+			const nextPoints = currentPoints.map((point, index) => {
 				const target = targetPoints[index];
 				const speed = speeds[index];
 
@@ -359,6 +359,7 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 					y: point.y + (target.y - point.y) * speed,
 				};
 			});
+			state.points = keepSimpleQuad(nextPoints, currentPoints, targetPoints);
 			state.movement = Math.hypot(targetCenter.x - currentCenter.x, targetCenter.y - currentCenter.y);
 
 			place(state);
@@ -467,15 +468,67 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 			return Math.max(0, Math.min(1, mixedScore));
 		});
 
-		const horizontalAmount = Math.abs(direction.x);
-
 		return scores.map((score, index) => {
-			const isTopPoint = index === 0 || index === 1;
-			const edgeOffset = config.topEdgeBoost * horizontalAmount * (isTopPoint ? 1 : -0.45);
-			const speed = config.slowSpeed + (config.fastSpeed - config.slowSpeed) * score + edgeOffset;
+			const cornerVector = normalize({
+				x: targetPoints[index].x - targetCenterForCorners.x,
+				y: targetPoints[index].y - targetCenterForCorners.y,
+			});
+			const tangent = {
+				x: -direction.y,
+				y: direction.x,
+			};
+			const twistScore = dot(cornerVector, tangent);
+			const speed = config.slowSpeed +
+				(config.fastSpeed - config.slowSpeed) * score +
+				config.twistBoost * twistScore * 0.5;
 
 			return Math.max(0.01, Math.min(1, speed));
 		});
+	}
+
+	function keepSimpleQuad(nextPoints, currentPoints, targetPoints) {
+		if (isSimpleConvexQuad(nextPoints)) {
+			return nextPoints;
+		}
+
+		for (const factor of [0.75, 0.5, 0.25, 0]) {
+			const candidate = currentPoints.map((point, index) => ({
+				x: targetPoints[index].x + (point.x - targetPoints[index].x) * factor,
+				y: targetPoints[index].y + (point.y - targetPoints[index].y) * factor,
+			}));
+
+			if (isSimpleConvexQuad(candidate)) {
+				return candidate;
+			}
+		}
+
+		return targetPoints;
+	}
+
+	function isSimpleConvexQuad(points) {
+		if (!points || points.length !== 4) {
+			return false;
+		}
+
+		const signs = [];
+
+		for (let index = 0; index < 4; index++) {
+			const previous = points[index];
+			const current = points[(index + 1) % 4];
+			const next = points[(index + 2) % 4];
+			const crossValue = cross(
+				{ x: current.x - previous.x, y: current.y - previous.y },
+				{ x: next.x - current.x, y: next.y - current.y }
+			);
+
+			if (Math.abs(crossValue) < 0.001) {
+				continue;
+			}
+
+			signs.push(Math.sign(crossValue));
+		}
+
+		return signs.length > 0 && signs.every((sign) => sign === signs[0]);
 	}
 
 	function getCenter(points) {
@@ -506,6 +559,10 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 
 	function dot(left, right) {
 		return left.x * right.x + left.y * right.y;
+	}
+
+	function cross(left, right) {
+		return left.x * right.y - left.y * right.x;
 	}
 
 	function place(state) {

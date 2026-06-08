@@ -71,7 +71,7 @@ Jelly Cursor: Uninstall DOM Patch
   "jellyCursor.midSpeed": 0.24,
   "jellyCursor.slowSpeed": 0.1,
   "jellyCursor.axisBias": 0.45,
-  "jellyCursor.topEdgeBoost": 0.16,
+  "jellyCursor.twistBoost": 0.16,
   "jellyCursor.minAlpha": 0.03
 }
 ```
@@ -82,7 +82,7 @@ Jelly Cursor: Uninstall DOM Patch
 - `jellyCursor.midSpeed`：预留的侧边角点调节值，后续可继续细分算法。
 - `jellyCursor.slowSpeed`：移动反方向上的角点速度。
 - `jellyCursor.axisBias`：控制速度判断更偏向横竖方向还是对角线方向。
-- `jellyCursor.topEdgeBoost`：横向移动时给上边两个点额外速度，让形变更灵活。
+- `jellyCursor.twistBoost`：为所有移动方向增加额外形变，同时避免光标点位交叉。
 - `jellyCursor.minAlpha`：原生光标闪烁时渲染光标的最低透明度。
 
 ### 辉光设置
