@@ -268,6 +268,8 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 			movement: 0,
 			started: false,
 			points: [],
+			lastVisiblePoints: [],
+			missedFrames: 0,
 			seen: 0,
 		};
 	}
@@ -295,24 +297,32 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 			const cursorRect = cursor.getBoundingClientRect();
 			const x = cursorRect.left;
 			const y = cursorRect.top;
+			const width = cursorRect.width;
+			const height = cursorRect.height;
 
-			if (!Number.isFinite(x) || !Number.isFinite(y) || cursorRect.height <= 0) {
+			if (!Number.isFinite(x) || !Number.isFinite(y) || height <= 0) {
 				continue;
 			}
+
+			const targetPoints = getBoxPoints(x, y, width, height);
 
 			state.editor = editor;
 			state.targetX = x;
 			state.targetY = y;
-			state.width = cursorRect.width;
-			state.height = cursorRect.height;
+			state.width = width;
+			state.height = height;
 			state.visual = readCursorVisual(cursor);
 			state.seen = seen;
 
 			if (!state.started) {
-				const nearestState = findNearestStartedState(state, index);
-				state.points = nearestState ? clonePoints(nearestState.points) : getTargetPoints(state);
+				const nearestState = findNearestStartedState(targetPoints, index);
+				state.points = nearestState ? clonePoints(nearestState.points) : targetPoints;
 				state.started = true;
+			} else if (state.missedFrames > 0 && state.lastVisiblePoints.length === 4) {
+				state.points = clonePoints(state.lastVisiblePoints);
 			}
+
+			state.missedFrames = 0;
 		}
 	}
 
@@ -375,14 +385,15 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 	}
 
 	function hideCursorState(state) {
+		state.missedFrames++;
 		state.shape.setAttribute('visibility', 'hidden');
 		state.shape.style.filter = 'none';
 	}
 
-	function findNearestStartedState(targetState, targetIndex) {
+	function findNearestStartedState(targetPoints, targetIndex) {
 		let nearest = null;
 		let nearestDistance = Number.POSITIVE_INFINITY;
-		const targetCenter = getCenter(getTargetPoints(targetState));
+		const targetCenter = getCenter(targetPoints);
 
 		for (let index = 0; index < states.length; index++) {
 			const state = states[index];
@@ -432,6 +443,10 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 		const width = Math.max(1, state.width);
 		const height = Math.max(1, state.height);
 
+		return getBoxPoints(x, y, width, height);
+	}
+
+	function getBoxPoints(x, y, width, height) {
 		return [
 			{ x, y },
 			{ x: x + width, y },
@@ -448,42 +463,50 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 		const distance = Math.hypot(dx, dy);
 
 		if (distance < 0.01) {
-			return [config.fastSpeed, config.fastSpeed, config.fastSpeed, config.fastSpeed];
+			return targetPoints.map(() => config.fastSpeed);
 		}
 
 		const direction = {
 			x: dx / distance,
 			y: dy / distance,
 		};
-		const targetCenterForCorners = getCenter(targetPoints);
-		const scores = targetPoints.map((point) => {
-			const cornerVector = normalize({
-				x: point.x - targetCenterForCorners.x,
-				y: point.y - targetCenterForCorners.y,
-			});
-			const diagonalScore = (dot(cornerVector, direction) + 1) / 2;
-			const axisScore = getAxisScore(cornerVector, direction);
-			const mixedScore = diagonalScore * (1 - config.axisBias) + axisScore * config.axisBias;
+		const center = getCenter(targetPoints);
 
-			return Math.max(0, Math.min(1, mixedScore));
-		});
-
-		return scores.map((score, index) => {
-			const cornerVector = normalize({
-				x: targetPoints[index].x - targetCenterForCorners.x,
-				y: targetPoints[index].y - targetCenterForCorners.y,
-			});
+		return targetPoints.map((point) => {
+			const cornerVector = getCornerVector(point, center);
+			const diagonalLead = dot(cornerVector, direction);
+			const axisLead = getAxisLead(cornerVector, direction);
+			const lead = clampValue(diagonalLead * (1 - config.axisBias) + axisLead * config.axisBias, -1, 1);
 			const tangent = {
 				x: -direction.y,
 				y: direction.x,
 			};
-			const twistScore = dot(cornerVector, tangent);
-			const speed = config.slowSpeed +
-				(config.fastSpeed - config.slowSpeed) * score +
-				config.twistBoost * twistScore * 0.5;
+			const twist = -dot(cornerVector, tangent) * config.twistBoost * 0.45;
+			const baseSpeed = lead >= 0
+				? config.midSpeed + (config.fastSpeed - config.midSpeed) * lead
+				: config.midSpeed + (config.slowSpeed - config.midSpeed) * -lead;
+			const distanceBoost = Math.min(0.16, distance / 900);
+			const speed = baseSpeed + twist + distanceBoost;
 
-			return Math.max(0.01, Math.min(1, speed));
+			return clampValue(speed, 0.01, 1);
 		});
+	}
+
+	function getCornerVector(point, center) {
+		return normalize({
+			x: Math.sign(point.x - center.x),
+			y: Math.sign(point.y - center.y),
+		});
+	}
+
+	function getAxisLead(cornerVector, direction) {
+		const horizontalWeight = Math.abs(direction.x);
+		const verticalWeight = Math.abs(direction.y);
+		const total = horizontalWeight + verticalWeight || 1;
+		const horizontalLead = horizontalWeight === 0 ? 0 : Math.sign(cornerVector.x) * Math.sign(direction.x) * horizontalWeight;
+		const verticalLead = verticalWeight === 0 ? 0 : Math.sign(cornerVector.y) * Math.sign(direction.y) * verticalWeight;
+
+		return (horizontalLead + verticalLead) / total;
 	}
 
 	function keepSimpleQuad(nextPoints, currentPoints, targetPoints) {
@@ -538,16 +561,6 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 		}), { x: 0, y: 0 });
 	}
 
-	function getAxisScore(cornerVector, direction) {
-		const horizontal = direction.x === 0 ? 0.5 : (Math.sign(direction.x) === Math.sign(cornerVector.x) ? 1 : 0);
-		const vertical = direction.y === 0 ? 0.5 : (Math.sign(direction.y) === Math.sign(cornerVector.y) ? 1 : 0);
-		const horizontalWeight = Math.abs(direction.x);
-		const verticalWeight = Math.abs(direction.y);
-		const total = horizontalWeight + verticalWeight || 1;
-
-		return (horizontal * horizontalWeight + vertical * verticalWeight) / total;
-	}
-
 	function normalize(vector) {
 		const length = Math.hypot(vector.x, vector.y) || 1;
 
@@ -563,6 +576,10 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 
 	function cross(left, right) {
 		return left.x * right.y - left.y * right.x;
+	}
+
+	function clampValue(value, min, max) {
+		return Math.min(max, Math.max(min, value));
 	}
 
 	function place(state) {
@@ -595,6 +612,7 @@ function getInjectedScript(jellyConfig: JellyConfig) {
 		state.shape.setAttribute('opacity', String(opacity));
 		state.shape.setAttribute('visibility', visual.visibility);
 		state.shape.style.filter = glowFilter;
+		state.lastVisiblePoints = clonePoints(state.points);
 	}
 
 	function withAlpha(color, alpha) {

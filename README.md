@@ -14,6 +14,8 @@ Jelly Cursor adds a jelly-like animated cursor to VS Code. The cursor follows Mo
 - Native cursor shape mirroring for line and block cursor modes
 - Separate cursor state for multi-cursor and split editor layouts
 - Cross-pane animation when switching between split editors
+- Off-screen jump animation that starts from the last visible cursor position
+- Diagonal twist on horizontal and vertical movement so all four cursor corners can move at distinct speeds
 
 ## Vim Compatibility
 
@@ -80,11 +82,11 @@ Settings are read when the DOM patch is installed. After changing settings, run 
 
 ### Motion Settings
 
-- `jellyCursor.fastSpeed`: Speed for the corner closest to the movement direction.
-- `jellyCursor.midSpeed`: Reserved side-corner tuning value for future refinements.
-- `jellyCursor.slowSpeed`: Speed for the corner opposite the movement direction.
+- `jellyCursor.fastSpeed`: Speed for corners leading the movement direction.
+- `jellyCursor.midSpeed`: Speed for side corners during jelly deformation.
+- `jellyCursor.slowSpeed`: Speed for corners trailing the movement direction.
 - `jellyCursor.axisBias`: Controls whether speed selection favors axis movement or diagonal movement.
-- `jellyCursor.twistBoost`: Adds extra directional deformation in every movement direction while preserving a non-crossing cursor shape.
+- `jellyCursor.twistBoost`: Adds diagonal twist during movement while preserving a non-crossing cursor shape.
 - `jellyCursor.minAlpha`: Minimum alpha while the native cursor is blinking.
 
 ### Glow Settings

@@ -2,6 +2,12 @@
 
 All notable changes to Jelly Cursor are documented here.
 
+## [0.0.6] - 2026-06-24
+
+- Preserve the last visible cursor shape as the animation origin when jumping to lines outside the rendered viewport.
+- Improved horizontal and vertical jelly motion with stronger diagonal twist so all four corners can move at distinct speeds.
+- Kept convex shape protection while tuning the full-direction corner speed model to avoid self-crossing cursor polygons.
+
 ## [0.0.5] - 2026-06-08
 
 - Reworked jelly deformation to behave consistently in every movement direction.
